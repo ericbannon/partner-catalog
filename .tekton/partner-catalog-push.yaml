@@ -326,7 +326,7 @@ spec:
       workspaces:
       - name: test-ws
         workspace: workspace
-    - name: ACS-image-scan
+    - name: roxctl-scan
       params:
       - name: image 
         value: $(tasks.build-container.results.IMAGE_URL)
@@ -377,14 +377,14 @@ spec:
               echo "## Go to https://$ROX_CENTRAL_ENDPOINT/main/vulnerability-management/image/$(params.image_digest) to check more info"
               TEST_OUTPUT="Details in the logs"
               echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
-    - name: ACS-image-check
+    - name: roxctl-check
       params:
       - name: image 
         value: $(tasks.build-container.results.IMAGE_URL)
       - name: image_digest
         value: $(tasks.build-container.results.IMAGE_DIGEST)
       runAfter:
-      - ACS-image-scan
+      - roxctl-scan
       taskSpec:
         steps:
           - name: roxctl-image-check
@@ -411,7 +411,7 @@ spec:
               curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
               chmod +x ./roxctl 
               echo "## Scanning image $(params.image)@$(params.image_digest)"
-              ./roxctl image scan --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest)
+              ./roxctl image check --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest)
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
