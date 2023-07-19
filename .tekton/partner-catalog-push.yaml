@@ -326,28 +326,42 @@ spec:
       workspaces:
       - name: test-ws
         workspace: workspace
-    - name: clair-scan
-      params:
-      - name: image-digest
-        value: $(tasks.build-container.results.IMAGE_DIGEST)
-      - name: image-url
-        value: $(tasks.build-container.results.IMAGE_URL)
-      runAfter:
-      - build-container
-      taskRef:
-        params:
-        - name: name
-          value: clair-scan
-        - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-clair-scan:0.1@sha256:2016d1d4a1fc02ed353d7aede4bc5f81c5a335f6bcf4a9a2c97d33364afc3210
-        - name: kind
-          value: task
-        resolver: bundles
-      when:
-      - input: $(params.skip-checks)
-        operator: in
-        values:
-        - "false"
+    - name: roxctl-image-scan
+            # image: redhat/ubi8
+      image: quay.io/lrangine/crda-maven:11.0
+      env:
+        - name: ROX_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: roxsecrets
+              key: rox_api_token
+        - name: ROX_CENTRAL_ENDPOINT 
+          valueFrom:
+            secretKeyRef:
+              name: roxsecrets
+              key: rox_central_endpoint
+      script: |
+        #!/usr/bin/env bash
+        echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
+        echo "ROX_API_TOKEN: " + $ROX_API_TOKEM
+        jq --version
+        echo "jq version ^"
+        echo "Getting roxctl"
+        curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
+        chmod +x ./roxctl 
+        echo "## Scanning image $(params.image)@$(params.image_digest)"
+        ./roxctl image scan --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest) --output json  > roxctl_output.json
+        more roxctl_output.json
+        jq -rce \
+        '{vulnerabilities:{
+        critical: (.result.summary.CRITICAL),
+        high: (.result.summary.IMPORTANT),
+        medium: (.result.summary.MODERATE),
+        low: (.result.summary.LOW)
+        }}' roxctl_output.json | tee $(results.CVE_SCAN_RESULT.path)              
+        echo "## Go to https://$ROX_CENTRAL_ENDPOINT/main/vulnerability-management/image/$(params.image_digest) to check more info"
+        TEST_OUTPUT="Details in the logs"
+        echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
