@@ -413,6 +413,42 @@ spec:
               chmod +x ./roxctl 
               echo "## Scanning image $(params.image)@$(params.image_digest)"
               ./roxctl image check --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest)
+    - name: roxctl-netpol
+      params:
+      - name: image 
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: image_digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      runAfter:
+      - roxctl-check
+      taskSpec:
+        steps:
+          - name: roxctl-netpol-generate
+            # image: redhat/ubi8
+            image: quay.io/lrangine/crda-maven:11.0
+            env:
+              - name: ROX_API_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets
+                    key: rox_api_token
+              - name: ROX_CENTRAL_ENDPOINT 
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets
+                    key: rox_central_endpoint
+            script: |
+              #!/usr/bin/env bash
+              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
+              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
+              jq --version
+              echo "jq version ^"
+              echo "Getting roxctl"
+              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
+              chmod +x ./roxctl 
+              echo "## Scanning image $(params.image)@$(params.image_digest)"
+              wget https://github.com/redhat-appstudio-appdata/partner-catalog-fUBlN-reflect-view/raw/main/components/partner-catalog/overlays/development/route.yaml
+              ./roxctl generate netpol route.yaml
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
@@ -462,41 +498,6 @@ spec:
         operator: in
         values:
         - "false"
-    - name: generate-network-policy
-      params:
-      - name: image 
-        value: $(tasks.build-container.results.IMAGE_URL)
-      - name: image_digest
-        value: $(tasks.build-container.results.IMAGE_DIGEST)
-      runAfter:
-      - roxctl-check
-      taskSpec:
-        steps:
-          - name: roxctl-netpol-generate
-            # image: redhat/ubi8
-            image: quay.io/lrangine/crda-maven:11.0
-            env:
-              - name: ROX_API_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: roxsecrets
-                    key: rox_api_token
-              - name: ROX_CENTRAL_ENDPOINT 
-                valueFrom:
-                  secretKeyRef:
-                    name: roxsecrets
-                    key: rox_central_endpoint
-            script: |
-              #!/usr/bin/env bash
-              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
-              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
-              jq --version
-              echo "jq version ^"
-              echo "Getting roxctl"
-              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
-              chmod +x ./roxctl 
-              wget https://github.com/redhat-appstudio-appdata/partner-catalog-fUBlN-reflect-view/raw/main/components/partner-catalog/overlays/development/route.yaml
-              ./roxctl generate netpol route.yaml
     - name: sbom-json-check
       params:
       - name: IMAGE_URL
