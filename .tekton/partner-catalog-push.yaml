@@ -64,7 +64,7 @@ spec:
     - name: show-netpol
       params:
       - name: network-policy
-        value: $(tasks.roxctl-netpol-generation.results.network-policy)
+        value: $(tasks.roxctl-netpol-generation.results)
       taskRef:
         params:
         - name: name 
