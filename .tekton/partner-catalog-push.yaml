@@ -378,7 +378,7 @@ spec:
               echo "## Go to https://$ROX_CENTRAL_ENDPOINT/main/vulnerability-management/image/$(params.image_digest) to check more info"
               TEST_OUTPUT="Details in the logs"
               echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
-    - name: roxctl-check
+    - name: roxctl-netpol-generate
       params:
       - name: image 
         value: $(tasks.build-container.results.IMAGE_URL)
@@ -388,7 +388,7 @@ spec:
       - roxctl-scan
       taskSpec:
         steps:
-          - name: roxctl-image-check
+          - name: roxctl-netpol-check
             # image: redhat/ubi8
             image: quay.io/lrangine/crda-maven:11.0
             env:
@@ -412,40 +412,6 @@ spec:
               curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
               chmod +x ./roxctl 
               echo "## Scanning image $(params.image)@$(params.image_digest)"
-              ./roxctl image check --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest)
-    - name: roxctl-netpol
-      params:
-      - name: image 
-        value: $(tasks.build-container.results.IMAGE_URL)
-      - name: image_digest
-        value: $(tasks.build-container.results.IMAGE_DIGEST)
-      runAfter:
-      - roxctl-check
-      taskSpec:
-        steps:
-          - name: roxctl-netpol-generate
-            # image: redhat/ubi8
-            image: quay.io/lrangine/crda-maven:11.0
-            env:
-              - name: ROX_API_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: roxsecrets
-                    key: rox_api_token
-              - name: ROX_CENTRAL_ENDPOINT 
-                valueFrom:
-                  secretKeyRef:
-                    name: roxsecrets
-                    key: rox_central_endpoint
-            script: |
-              #!/usr/bin/env bash
-              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
-              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
-              jq --version
-              echo "jq version ^"
-              echo "Getting roxctl"
-              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
-              chmod +x ./roxctl 
               curl https://raw.githubusercontent.com/redhat-appstudio-appdata/partner-catalog-fUBlN-reflect-view/main/components/partner-catalog/overlays/development/deployment-patch.yaml --output ./deployment.yaml
               roxctl generate netpol ./deployment.yaml
     - name: sast-snyk-check
