@@ -61,14 +61,6 @@ spec:
         - name: kind
           value: task
         resolver: bundles
-    - name: show-netpol
-      params:
-      - name: network-policy
-        value: $(tasks.roxctl-netpol-generation.results)
-      taskRef:
-        params:
-        - name: name 
-          value: show-netpol
     params:
     - description: Source Repository URL
       name: git-url
