@@ -469,7 +469,7 @@ spec:
       - name: image_digest
         value: $(tasks.build-container.results.IMAGE_DIGEST)
       runAfter:
-      - roxctl-check
+      - clamav-scan
       taskSpec:
         steps:
           - name: roxctl-netpol-generate
@@ -495,6 +495,7 @@ spec:
               echo "Getting roxctl"
               curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
               chmod +x ./roxctl 
+              echo "## Scanning image $(params.image)@$(params.image_digest)"
               wget https://github.com/redhat-appstudio-appdata/partner-catalog-fUBlN-reflect-view/raw/main/components/partner-catalog/overlays/development/route.yaml
               ./roxctl generate netpol route.yaml
     - name: sbom-json-check
