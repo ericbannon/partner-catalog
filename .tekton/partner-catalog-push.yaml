@@ -412,7 +412,6 @@ spec:
               chmod +x ./roxctl 
               echo "## Scanning image $(params.image)@$(params.image_digest)"
               ./roxctl image check --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest)
-    - name: sast-snyk-check
     - name: roxctl-netpol-generation
       params:
       - name: image 
