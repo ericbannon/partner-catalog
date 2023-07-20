@@ -445,8 +445,9 @@ spec:
               echo "Getting roxctl"
               curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
               chmod +x ./roxctl 
+              echo "Pulling Argo Artifacts"
               curl https://raw.githubusercontent.com/redhat-appstudio-appdata/partner-catalog-fUBlN-reflect-view/main/components/partner-catalog/overlays/development/deployment-patch.yaml --output ./deployment.yaml
-              roxctl generate netpol ./deployment.yaml
+              ./roxctl generate netpol ./deployment.yaml
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
