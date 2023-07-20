@@ -65,6 +65,10 @@ spec:
       params:
       - name: network-policy
         value: $(tasks.roxctl-netpol-generation.results.network-policy)
+      taskRef:
+        params:
+        - name: name 
+          value: show-netpol
     params:
     - description: Source Repository URL
       name: git-url
