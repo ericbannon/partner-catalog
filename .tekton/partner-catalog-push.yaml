@@ -420,7 +420,7 @@ spec:
       - name: image_digest
         value: $(tasks.build-container.results.IMAGE_DIGEST)
       runAfter:
-      - clamav-scan
+      - roxctl-check
       taskSpec:
         steps:
           - name: roxctl-netpol-check
