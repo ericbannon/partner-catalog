@@ -61,7 +61,6 @@ spec:
         - name: kind
           value: task
         resolver: bundles
-    - name: generate-network-policy
     params:
     - description: Source Repository URL
       name: git-url
@@ -378,7 +377,7 @@ spec:
               echo "## Go to https://$ROX_CENTRAL_ENDPOINT/main/vulnerability-management/image/$(params.image_digest) to check more info"
               TEST_OUTPUT="Details in the logs"
               echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
-    - name: roxctl-netpol-generate
+    - name: roxctl-netpol-generation
       params:
       - name: image 
         value: $(tasks.build-container.results.IMAGE_URL)
