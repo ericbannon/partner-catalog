@@ -61,6 +61,10 @@ spec:
         - name: kind
           value: task
         resolver: bundles
+    - name: show-netpol
+      params:
+        - name: network-policy
+          value: $(tasks.roxctl-netpol-generation.results.network-policy)
     params:
     - description: Source Repository URL
       name: git-url
@@ -453,7 +457,7 @@ spec:
               echo "Getting networking details from deployment"
               ./oc get deployment partner-catalog -o yaml > ./deployment.yaml
               echo "Generating base network policy for partner-catalog"
-              ./roxctl generate netpol ./deployment.yaml
+              ./roxctl generate netpol ./deployment.yaml --output-file default-network-policy.yaml
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
