@@ -63,8 +63,8 @@ spec:
         resolver: bundles
     - name: show-netpol
       params:
-        - name: network-policy
-          value: $(tasks.roxctl-netpol-generation.results.network-policy)
+      - name: network-policy
+        value: $(tasks.roxctl-netpol-generation.results.network-policy)
     params:
     - description: Source Repository URL
       name: git-url
