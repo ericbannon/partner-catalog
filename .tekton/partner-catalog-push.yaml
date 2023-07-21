@@ -448,12 +448,15 @@ spec:
               echo "Downloading oc client"
               curl -k https://downloads-openshift-console.apps.eb-06-01-icky-oranges-perfec.openshift.infra.rox.systems/amd64/linux/oc.tar --output ./oc.tar
               tar xvf ./oc.tar
-              echo "Logging into development environment"
+              echo "Logging into your cluster"
               ./oc login --server=https://api.eb-06-01-icky-oranges-perfec.openshift.infra.rox.systems:6443 -u kubeadmin -p w9dYJ-00Je7-K2A0H-ED5ku-6Sdvz --insecure-skip-tls-verify=true
               echo "Getting networking details from deployment"
               ./oc get deployment -n default partner-catalog -o yaml > ./deployment.yaml
               echo "Generating base network policy for partner-catalog"
               ./roxctl generate netpol ./deployment.yaml --output-file default-network-policy.yaml
+              ./roxctl generate netpol ./deployment.yaml
+              echo "Applying default network policy"
+              ./oc create -f default-network-policy.yaml -n default
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
