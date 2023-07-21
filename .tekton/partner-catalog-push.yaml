@@ -463,7 +463,7 @@ spec:
               kind: NetworkPolicy
               metadata:
                 name: allow-ingress
-                nameamespace: default
+                namespace: default
               spec:
                 podSelector: {}
                 ingress:
