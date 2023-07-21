@@ -457,6 +457,24 @@ spec:
               ./roxctl generate netpol ./deployment.yaml
               echo "Applying default network policy"
               ./oc create -f default-network-policy.yaml -n default
+              echo "Creating network policy to allow ingress"
+              cat <<EOF >> ./ingress-netpol.yaml
+              apiVersion: networking.k8s.io/v1
+              kind: NetworkPolicy
+              metadata:
+                  name: allow-from-openshift-ingress
+                  nameamespace: default
+              spec:
+                  podSelector: {}
+                  ingress:
+                  - from:
+                      - namespaceSelector:
+                          matchLabels:
+                              network.openshift.io/policy-group: ingress
+              EOF
+              ./oc create -f ./ingress-netpol.yaml
+              echo "Applied all network policies"
+              cat ./ingress-netpol.yaml
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
