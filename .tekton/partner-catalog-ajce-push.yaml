@@ -5,15 +5,15 @@ metadata:
     build.appstudio.openshift.io/repo: https://github.com/ericbannon/partner-catalog?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
-    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/max-keep-runs: "4"
     pipelinesascode.tekton.dev/on-event: '[push]'
     pipelinesascode.tekton.dev/on-target-branch: '[main]'
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: partner-catalog-1
-    appstudio.openshift.io/component: partner-catalog-ajce
+    appstudio.openshift.io/application: partner-catalog
+    appstudio.openshift.io/component: partner-catalog
     pipelines.appstudio.openshift.io/type: build
-  name: partner-catalog-ajce-on-push
+  name: partner-catalog-on-push
   namespace: ebannon-tenant
 spec:
   params:
@@ -22,7 +22,7 @@ spec:
   - name: git-url
     value: '{{repo_url}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/ebannon-tenant/partner-catalog-1/partner-catalog-ajce:{{revision}}
+    value: quay.io/redhat-user-workloads/ebannon-tenant/partner-catalog/partner-catalog:{{revision}}
   - name: path-context
     value: .
   - name: revision
@@ -326,28 +326,134 @@ spec:
       workspaces:
       - name: test-ws
         workspace: workspace
-    - name: clair-scan
+    - name: roxctl-scan
       params:
-      - name: image-digest
-        value: $(tasks.build-container.results.IMAGE_DIGEST)
-      - name: image-url
+      - name: image 
         value: $(tasks.build-container.results.IMAGE_URL)
+      - name: image_digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
       runAfter:
       - build-container
-      taskRef:
-        params:
-        - name: name
-          value: clair-scan
-        - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-clair-scan:0.1@sha256:2016d1d4a1fc02ed353d7aede4bc5f81c5a335f6bcf4a9a2c97d33364afc3210
-        - name: kind
-          value: task
-        resolver: bundles
-      when:
-      - input: $(params.skip-checks)
-        operator: in
-        values:
-        - "false"
+      taskSpec:
+        results:
+        - name: CVE_SCAN_RESULT
+          description: roxctl scan result
+        - name: TEST_OUTPUT
+          description: roxctl scan test output
+        steps:
+          - name: roxctl-image-scan
+            # image: redhat/ubi8
+            image: quay.io/lrangine/crda-maven:11.0
+            env:
+              - name: ROX_API_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets
+                    key: rox_api_token
+              - name: ROX_CENTRAL_ENDPOINT 
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets
+                    key: rox_central_endpoint
+            script: |
+              #!/usr/bin/env bash
+              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
+              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
+              jq --version
+              echo "jq version ^"
+              echo "Getting roxctl"
+              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
+              chmod +x ./roxctl 
+              echo "## Scanning image $(params.image)@$(params.image_digest)"
+              ./roxctl image scan --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest) --output json  > roxctl_output.json
+              more roxctl_output.json
+              jq -rce \
+              '{vulnerabilities:{
+              critical: (.result.summary.CRITICAL),
+              high: (.result.summary.IMPORTANT),
+              medium: (.result.summary.MODERATE),
+              low: (.result.summary.LOW)
+              }}' roxctl_output.json | tee $(results.CVE_SCAN_RESULT.path)              
+              echo "## Go to https://$ROX_CENTRAL_ENDPOINT/main/vulnerability-management/image/$(params.image_digest) to check more info"
+              TEST_OUTPUT="Details in the logs"
+              echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
+    - name: roxctl-check
+      params:
+      - name: image 
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: image_digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      runAfter:
+      - roxctl-scan
+      taskSpec:
+        steps:
+          - name: roxctl-image-check
+            # image: redhat/ubi8
+            image: quay.io/lrangine/crda-maven:11.0
+            env:
+              - name: ROX_API_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets
+                    key: rox_api_token
+              - name: ROX_CENTRAL_ENDPOINT 
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets
+                    key: rox_central_endpoint
+            script: |
+              #!/usr/bin/env bash
+              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
+              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
+              jq --version
+              echo "jq version ^"
+              echo "Getting roxctl"
+              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
+              chmod +x ./roxctl 
+              echo "## Scanning image $(params.image)@$(params.image_digest)"
+              ./roxctl image check --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest)
+    - name: roxctl-netpol-generation
+      params:
+      - name: image 
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: image_digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      runAfter:
+      - clamav-scan
+      taskSpec:
+        steps:
+          - name: roxctl-netpol-check
+            # image: redhat/ubi8
+            image: quay.io/lrangine/crda-maven:11.0
+            env:
+              - name: ROX_API_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets
+                    key: rox_api_token
+              - name: ROX_CENTRAL_ENDPOINT 
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets
+                    key: rox_central_endpoint
+            script: |
+              #!/usr/bin/env bash
+              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
+              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
+              jq --version
+              echo "jq version ^"
+              echo "Getting roxctl"
+              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
+              chmod +x ./roxctl 
+              echo "Downloading oc client"
+              curl -k https://downloads-openshift-console.apps.eb-06-01-icky-oranges-perfec.openshift.infra.rox.systems/amd64/linux/oc.tar --output ./oc.tar
+              tar xvf ./oc.tar
+              echo "Logging into development environment"
+              ./oc login --server=https://api.eb-06-01-icky-oranges-perfec.openshift.infra.rox.systems:6443 -u kubeadmin -p w9dYJ-00Je7-K2A0H-ED5ku-6Sdvz --insecure-skip-tls-verify=true
+              echo "Getting networking details from deployment"
+              ./oc get deployment -n ebannon-tenant partner-catalog -o yaml > ./deployment.yaml
+              echo "Generating base network policy for partner-catalog"
+              ./roxctl generate netpol ./deployment.yaml --output-file default-network-policy.yaml
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
