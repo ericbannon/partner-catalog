@@ -451,7 +451,7 @@ spec:
               echo "Logging into development environment"
               ./oc login --server=https://api.eb-06-01-icky-oranges-perfec.openshift.infra.rox.systems:6443 -u kubeadmin -p w9dYJ-00Je7-K2A0H-ED5ku-6Sdvz --insecure-skip-tls-verify=true
               echo "Getting networking details from deployment"
-              ./oc get deployment partner-catalog -o yaml > ./deployment.yaml
+              ./oc get deployment -n ebannon-tenant partner-catalog -o yaml > ./deployment.yaml
               echo "Generating base network policy for partner-catalog"
               ./roxctl generate netpol ./deployment.yaml --output-file default-network-policy.yaml
     - name: sast-snyk-check
