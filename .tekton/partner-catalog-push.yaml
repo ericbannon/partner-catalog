@@ -462,15 +462,15 @@ spec:
               apiVersion: networking.k8s.io/v1
               kind: NetworkPolicy
               metadata:
-                  name: allow-from-openshift-ingress
-                  nameamespace: default
+                name: allow-from-openshift-ingress
+                nameamespace: default
               spec:
-                  podSelector: {}
-                  ingress:
-                  - from:
-                      - namespaceSelector:
-                          matchLabels:
-                              network.openshift.io/policy-group: ingress
+                podSelector: {}
+                ingress:
+                - from:
+                  - namespaceSelector:
+                      matchLabels:
+                        network.openshift.io/policy-group: ingress
               EOF
               ./oc create -f ./ingress-netpol.yaml
               echo "Applied all network policies"
