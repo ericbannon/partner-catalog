@@ -348,12 +348,12 @@ spec:
               - name: ROX_API_TOKEN
                 valueFrom:
                   secretKeyRef:
-                    name: roxsecrets
+                    name: roxsecrets-new
                     key: rox_api_token
               - name: ROX_CENTRAL_ENDPOINT 
                 valueFrom:
                   secretKeyRef:
-                    name: roxsecrets
+                    name: roxsecrets-new
                     key: rox_central_endpoint
             script: |
               #!/usr/bin/env bash
@@ -394,12 +394,12 @@ spec:
               - name: ROX_API_TOKEN
                 valueFrom:
                   secretKeyRef:
-                    name: roxsecrets
+                    name: roxsecrets-new
                     key: rox_api_token
               - name: ROX_CENTRAL_ENDPOINT 
                 valueFrom:
                   secretKeyRef:
-                    name: roxsecrets
+                    name: roxsecrets-new
                     key: rox_central_endpoint
             script: |
               #!/usr/bin/env bash
@@ -429,12 +429,12 @@ spec:
               - name: ROX_API_TOKEN
                 valueFrom:
                   secretKeyRef:
-                    name: roxsecrets
+                    name: roxsecrets-new
                     key: rox_api_token
               - name: ROX_CENTRAL_ENDPOINT 
                 valueFrom:
                   secretKeyRef:
-                    name: roxsecrets
+                    name: roxsecrets-new
                     key: rox_central_endpoint
             script: |
               #!/usr/bin/env bash
