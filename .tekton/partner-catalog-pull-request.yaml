@@ -4,16 +4,17 @@ metadata:
   annotations:
     build.appstudio.openshift.io/repo: https://github.com/ericbannon/partner-catalog?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-event: '[push]'
+    pipelinesascode.tekton.dev/on-event: '[pull_request]'
     pipelinesascode.tekton.dev/on-target-branch: '[main]'
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: partner-catalog
     appstudio.openshift.io/component: partner-catalog
     pipelines.appstudio.openshift.io/type: build
-  name: partner-catalog-on-push
+  name: partner-catalog-on-pull-request
   namespace: ebannon-tenant
 spec:
   params:
@@ -21,8 +22,10 @@ spec:
     value: https://raw.githubusercontent.com/devfile-samples/devfile-sample-java-springboot-basic/main/docker/Dockerfile
   - name: git-url
     value: '{{repo_url}}'
+  - name: image-expires-after
+    value: 5d
   - name: output-image
-    value: quay.io/redhat-user-workloads/ebannon-tenant/partner-catalog/partner-catalog:{{revision}}
+    value: quay.io/redhat-user-workloads/ebannon-tenant/partner-catalog/partner-catalog:on-pr-{{revision}}
   - name: path-context
     value: .
   - name: revision
