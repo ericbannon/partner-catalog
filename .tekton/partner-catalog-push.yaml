@@ -5,9 +5,9 @@ metadata:
     build.appstudio.openshift.io/repo: https://github.com/ericbannon/partner-catalog?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
-    pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main"
+    pipelinesascode.tekton.dev/max-keep-runs: "4"
+    pipelinesascode.tekton.dev/on-event: '[push]'
+    pipelinesascode.tekton.dev/on-target-branch: '[main]'
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: partner-catalog
@@ -38,7 +38,7 @@ spec:
         - name: name
           value: show-sbom
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-show-sbom:0.1@sha256:4b8a47b3cd3f80d0a9ec46ec43fd2ebe0487979f351a8eeebe5aa04854d3861c
+          value: quay.io/redhat-appstudio-tekton-catalog/task-show-sbom:0.1@sha256:23cc5e2315040ce142a9aa764fa455b31bb42baeb0c0ec049a12a19d844b2c8a
         - name: kind
           value: task
         resolver: bundles
@@ -57,7 +57,7 @@ spec:
         - name: name
           value: summary
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-summary:0.1@sha256:6e9a01b2694b8008192bc469e42335ac9392835599cc0b8f82ce11bb1a7be177
+          value: quay.io/redhat-appstudio-tekton-catalog/task-summary:0.1@sha256:bd6a2285974541df01260deca99a84b3b48a6b40759049e7e41e96b4942d83d3
         - name: kind
           value: task
         resolver: bundles
@@ -105,6 +105,10 @@ spec:
     - default: "false"
       description: Java build
       name: java
+      type: string
+    - default: ""
+      description: Snyk Token Secret Name
+      name: snyk-secret
       type: string
     - default: ""
       description: Image tag expiration time, time values could be something like
@@ -167,7 +171,7 @@ spec:
         - name: name
           value: git-clone
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-git-clone:0.1@sha256:913cdc904919482689e79829daeaa3b4d4cc116aafefd135d5af1fc2f8f1afcd
+          value: quay.io/redhat-appstudio-tekton-catalog/task-git-clone:0.1@sha256:458f4853a01c3273bd76076ac1b015d5f901e70fb4b776f788b577adb25bf5f8
         - name: kind
           value: task
         resolver: bundles
@@ -192,7 +196,7 @@ spec:
         - name: name
           value: prefetch-dependencies
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-prefetch-dependencies:0.1@sha256:563b91f72adf9b3b93f990f7c1d140f79749af837135aa07212347cb9ed79a34
+          value: quay.io/redhat-appstudio-tekton-catalog/task-prefetch-dependencies:0.1@sha256:c4b9fe3ba57f66359c18f2993c5503a57b3c2cf7c4c83f8d1f4e57e02a3a242f
         - name: kind
           value: task
         resolver: bundles
@@ -227,7 +231,7 @@ spec:
         - name: name
           value: buildah
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-buildah:0.1@sha256:93bb409637d51b37332b768ffa911f27f805229fdf4ba0841f745f83efceefa2
+          value: quay.io/redhat-appstudio-tekton-catalog/task-buildah:0.1@sha256:9cec47762c7fb80f2d0662f8ed979a89d64687880339bcbe20c271cf01c90e49
         - name: kind
           value: task
         resolver: bundles
@@ -252,7 +256,7 @@ spec:
         - name: name
           value: source-build
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-source-build:0.1@sha256:48323bb050abc02e1634752b1bd8782f938e0397db8bd7d9016419ff4017bcef
+          value: quay.io/redhat-appstudio-tekton-catalog/task-inspect-image:0.1@sha256:8b0b066c7d4adb5ffcb02cfbcb55393d741c9cddeda2099d7d1d7505c1e683ba
         - name: kind
           value: task
         resolver: bundles
@@ -274,12 +278,56 @@ spec:
         value: $(tasks.build-container.results.BASE_IMAGES_DIGESTS)
       runAfter:
       - build-container
+    - name: label-check
+      runAfter:
+      - inspect-image
+      taskRef:
+        params:
+        - name: name
+          value: label-check
+        - name: bundle
+          value: quay.io/redhat-appstudio-tekton-catalog/task-label-check:0.1@sha256:0c0739fdda24cd1e3587bbab9b07d4493efc21884baac7723f4b446e95bf1fd3
+        - name: kind
+          value: task
+        resolver: bundles
+      when:
+      - input: $(params.skip-checks)
+        operator: in
+        values:
+        - "false"
+    - name: optional-label-check
+      params:
+      - name: POLICY_NAMESPACE
+        value: optional_checks
+      runAfter:
+      - inspect-image
+      taskRef:
+        params:
+        - name: name
+          value: label-check
+        - name: bundle
+          value: quay.io/redhat-appstudio-tekton-catalog/task-label-check:0.1@sha256:0c0739fdda24cd1e3587bbab9b07d4493efc21884baac7723f4b446e95bf1fd3
+        - name: kind
+          value: task
+        resolver: bundles
+      when:
+      - input: $(params.skip-optional)
+        operator: in
+        values:
+        - "false"
+      workspaces:
+      - name: workspace
+        workspace: workspace
+    - name: deprecated-base-image-check
+      params:
+      - name: BASE_IMAGES_DIGESTS
+        value: $(tasks.build-container.results.BASE_IMAGES_DIGESTS)
       taskRef:
         params:
         - name: name
           value: deprecated-image-check
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-deprecated-image-check:0.3@sha256:6d7d51064b03e3bebaeeef48018694ee2a0bb2dd94783efea89eb87861516f92
+          value: quay.io/redhat-appstudio-tekton-catalog/task-deprecated-image-check:0.2@sha256:40856a6c6b4452361a2cdb17b927a35fd03edc3eec2e5bf94f96d211cc1d1d52
         - name: kind
           value: task
         resolver: bundles
@@ -288,29 +336,164 @@ spec:
         operator: in
         values:
         - "false"
-    - name: clair-scan
+      workspaces:
+      - name: test-ws
+        workspace: workspace
+    - name: roxctl-scan
       params:
-      - name: image-digest
-        value: $(tasks.build-container.results.IMAGE_DIGEST)
-      - name: image-url
+      - name: image 
         value: $(tasks.build-container.results.IMAGE_URL)
+      - name: image_digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
       runAfter:
       - build-container
-      taskRef:
-        params:
-        - name: name
-          value: clair-scan
-        - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-clair-scan:0.1@sha256:3691a67eae1e098959fb18ce415dbc489baf214b2bfa8321f95e096decb87538
-        - name: kind
-          value: task
-        resolver: bundles
-      when:
-      - input: $(params.skip-checks)
-        operator: in
-        values:
-        - "false"
+      taskSpec:
+        results:
+        - name: CVE_SCAN_RESULT
+          description: roxctl scan result
+        - name: TEST_OUTPUT
+          description: roxctl scan test output
+        steps:
+          - name: roxctl-image-scan
+            # image: redhat/ubi8
+            image: quay.io/lrangine/crda-maven:11.0
+            env:
+              - name: ROX_API_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets-new
+                    key: rox_api_token
+              - name: ROX_CENTRAL_ENDPOINT 
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets-new
+                    key: rox_central_endpoint
+            script: |
+              #!/usr/bin/env bash
+              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
+              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
+              jq --version
+              echo "jq version ^"
+              echo "Getting roxctl"
+              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
+              chmod +x ./roxctl 
+              echo "## Scanning image $(params.image)@$(params.image_digest)"
+              ./roxctl image scan --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest) --output json  > roxctl_output.json
+              more roxctl_output.json
+              jq -rce \
+              '{vulnerabilities:{
+              critical: (.result.summary.CRITICAL),
+              high: (.result.summary.IMPORTANT),
+              medium: (.result.summary.MODERATE),
+              low: (.result.summary.LOW)
+              }}' roxctl_output.json | tee $(results.CVE_SCAN_RESULT.path)              
+              echo "## Go to https://$ROX_CENTRAL_ENDPOINT/main/vulnerability-management/image/$(params.image_digest) to check more info"
+              TEST_OUTPUT="Details in the logs"
+              echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
+    - name: roxctl-check
+      params:
+      - name: image 
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: image_digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      runAfter:
+      - roxctl-scan
+      taskSpec:
+        steps:
+          - name: roxctl-image-check
+            # image: redhat/ubi8
+            image: quay.io/lrangine/crda-maven:11.0
+            env:
+              - name: ROX_API_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets-new
+                    key: rox_api_token
+              - name: ROX_CENTRAL_ENDPOINT 
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets-new
+                    key: rox_central_endpoint
+            script: |
+              #!/usr/bin/env bash
+              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
+              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
+              jq --version
+              echo "jq version ^"
+              echo "Getting roxctl"
+              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
+              chmod +x ./roxctl 
+              echo "## Scanning image $(params.image)@$(params.image_digest)"
+              ./roxctl image check --insecure-skip-tls-verify -e $ROX_CENTRAL_ENDPOINT --image $(params.image)@$(params.image_digest)
+    - name: roxctl-netpol-generation
+      params:
+      - name: image 
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: image_digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      runAfter:
+      - clamav-scan
+      taskSpec:
+        steps:
+          - name: roxctl-netpol-check
+            # image: redhat/ubi8
+            image: quay.io/lrangine/crda-maven:11.0
+            env:
+              - name: ROX_API_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets-new
+                    key: rox_api_token
+              - name: ROX_CENTRAL_ENDPOINT 
+                valueFrom:
+                  secretKeyRef:
+                    name: roxsecrets-new
+                    key: rox_central_endpoint
+            script: |
+              #!/usr/bin/env bash
+              echo "ROX_CENTRAL_ENDPOINT: " + $ROX_CENTRAL_ENDPOINT
+              echo "ROX_API_TOKEN: " + $ROX_API_TOKEN
+              jq --version
+              echo "jq version ^"
+              echo "Getting roxctl"
+              curl -k -L -H "Authorization: Bearer $ROX_API_TOKEN" https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux --output ./roxctl
+              chmod +x ./roxctl 
+              echo "Downloading oc client"
+              curl -k https://downloads-openshift-console.apps.eb-06-01-icky-oranges-perfec.openshift.infra.rox.systems/amd64/linux/oc.tar --output ./oc.tar
+              tar xvf ./oc.tar
+              echo "Logging into your cluster"
+              ./oc login --server=https://api.eb-06-01-icky-oranges-perfec.openshift.infra.rox.systems:6443 -u kubeadmin -p w9dYJ-00Je7-K2A0H-ED5ku-6Sdvz --insecure-skip-tls-verify=true
+              echo "Getting networking details from deployment"
+              ./oc get deployment -n default partner-catalog -o yaml > ./deployment.yaml
+              echo "Generating base network policy for partner-catalog"
+              ./roxctl generate netpol ./deployment.yaml --output-file default-network-policy.yaml
+              ./roxctl generate netpol ./deployment.yaml
+              echo "Applying default network policy"
+              ./oc create -f default-network-policy.yaml -n default
+              echo "Creating network policy to allow ingress"
+              cat <<EOF >> ./ingress-netpol.yaml
+              apiVersion: networking.k8s.io/v1
+              kind: NetworkPolicy
+              metadata:
+                name: allow-ingress
+                namespace: default
+              spec:
+                podSelector: {}
+                ingress:
+                - from:
+                  - namespaceSelector:
+                      matchLabels:
+                        network.openshift.io/policy-group: ingress
+              EOF
+              ./oc create -f ./ingress-netpol.yaml
+              echo "Applied all network policies"
+              cat ./ingress-netpol.yaml
+=======
+>>>>>>> 695f7a8 (edits)
     - name: sast-snyk-check
+      params:
+      - name: SNYK_SECRET
+        value: $(params.snyk-secret)
       runAfter:
       - clone-repository
       taskRef:
@@ -318,7 +501,7 @@ spec:
         - name: name
           value: sast-snyk-check
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-sast-snyk-check:0.1@sha256:d42d958aaf50c604281665f1deb26858d877ba7cc0171d0d3f937f07909c9e05
+          value: quay.io/redhat-appstudio-tekton-catalog/task-sast-snyk-check:0.1@sha256:2d3369bdbe3b5d37f6528d3048cb894e37c191c6db0395054b6b01d94d662118
         - name: kind
           value: task
         resolver: bundles
@@ -327,6 +510,10 @@ spec:
         operator: in
         values:
         - "false"
+      - input: $(params.snyk-secret)
+        operator: notin
+        values:
+        - ""
       workspaces:
       - name: workspace
         workspace: workspace
@@ -343,7 +530,7 @@ spec:
         - name: name
           value: clamav-scan
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-clamav-scan:0.1@sha256:1779f85108dcc55837ecb103b6524242872056a04ccdd726bbf1e718dcb8dc30
+          value: quay.io/redhat-appstudio-tekton-catalog/task-clamav-scan:0.1@sha256:a666a7dd4fd633d268d1ba26eaaa5ca2dd848c76b7fb2f04b8b37b7ce1c65f9a
         - name: kind
           value: task
         resolver: bundles
@@ -365,7 +552,7 @@ spec:
         - name: name
           value: sbom-json-check
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-sbom-json-check:0.1@sha256:ea881dfd625f9afa5d32ac01ca936132003aa33dd273b97388a14a84dd818f60
+          value: quay.io/redhat-appstudio-tekton-catalog/task-sbom-json-check:0.1@sha256:30829c02906bfb5761a2c3509ec00fa7b41a97ae1c931cdedcd007664fdbc292
         - name: kind
           value: task
         resolver: bundles
@@ -395,3 +582,4 @@ spec:
     secret:
       secretName: '{{ git_auth_secret }}'
 status: {}
+
