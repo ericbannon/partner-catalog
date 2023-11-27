@@ -488,8 +488,6 @@ spec:
               ./oc create -f ./ingress-netpol.yaml
               echo "Applied all network policies"
               cat ./ingress-netpol.yaml
-=======
->>>>>>> 695f7a8 (edits)
     - name: sast-snyk-check
       params:
       - name: SNYK_SECRET
