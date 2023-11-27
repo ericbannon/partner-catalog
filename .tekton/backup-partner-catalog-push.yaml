@@ -1,4 +1,4 @@
-apiVersion: tekton.dev/v1
+apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
   annotations:
@@ -73,13 +73,11 @@ spec:
       name: output-image
       type: string
     - default: .
-      description: Path to the source code of an application's component from where
-        to build image.
+      description: The path to your source code
       name: path-context
       type: string
     - default: Dockerfile
-      description: Path to the Dockerfile inside the context specified by parameter
-        path-context
+      description: Path to the Dockerfile
       name: dockerfile
       type: string
     - default: "false"
@@ -114,10 +112,6 @@ spec:
       description: Image tag expiration time, time values could be something like
         1h, 2d, 3w for hours, days, and weeks, respectively.
       name: image-expires-after
-    - default: "false"
-      description: Build a source image.
-      name: build-source-image
-      type: string
     results:
     - description: ""
       name: IMAGE_URL
@@ -154,7 +148,7 @@ spec:
         - name: name
           value: init
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-init:0.1@sha256:159b85246559defbabbd55a42da0b7f618a4307d13bd4d6eb486efb81d1dcfb5
+          value: quay.io/redhat-appstudio-tekton-catalog/task-init:0.1@sha256:26586a7ef08c3e86dfdaf0a5cc38dd3d70c4c02db1331b469caaed0a0f5b3d86
         - name: kind
           value: task
         resolver: bundles
@@ -243,41 +237,31 @@ spec:
       workspaces:
       - name: source
         workspace: workspace
-    - name: build-source-image
+    - name: inspect-image
       params:
-      - name: BINARY_IMAGE
-        value: $(params.output-image)
-      - name: BASE_IMAGES
-        value: $(tasks.build-container.results.BASE_IMAGES_DIGESTS)
+      - name: IMAGE_URL
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: IMAGE_DIGEST
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
       runAfter:
       - build-container
       taskRef:
         params:
         - name: name
-          value: source-build
+          value: inspect-image
         - name: bundle
           value: quay.io/redhat-appstudio-tekton-catalog/task-inspect-image:0.1@sha256:8b0b066c7d4adb5ffcb02cfbcb55393d741c9cddeda2099d7d1d7505c1e683ba
         - name: kind
           value: task
         resolver: bundles
       when:
-      - input: $(tasks.init.results.build)
+      - input: $(params.skip-checks)
         operator: in
         values:
-        - "true"
-      - input: $(params.build-source-image)
-        operator: in
-        values:
-        - "true"
+        - "false"
       workspaces:
-      - name: workspace
+      - name: source
         workspace: workspace
-    - name: deprecated-base-image-check
-      params:
-      - name: BASE_IMAGES_DIGESTS
-        value: $(tasks.build-container.results.BASE_IMAGES_DIGESTS)
-      runAfter:
-      - build-container
     - name: label-check
       runAfter:
       - inspect-image
@@ -295,6 +279,9 @@ spec:
         operator: in
         values:
         - "false"
+      workspaces:
+      - name: workspace
+        workspace: workspace
     - name: optional-label-check
       params:
       - name: POLICY_NAMESPACE
@@ -361,12 +348,20 @@ spec:
               - name: ROX_API_TOKEN
                 valueFrom:
                   secretKeyRef:
+<<<<<<< HEAD
                     name: roxsecrets-new
+=======
+                    name: roxsecrets
+>>>>>>> 695f7a8 (edits)
                     key: rox_api_token
               - name: ROX_CENTRAL_ENDPOINT 
                 valueFrom:
                   secretKeyRef:
+<<<<<<< HEAD
                     name: roxsecrets-new
+=======
+                    name: roxsecrets
+>>>>>>> 695f7a8 (edits)
                     key: rox_central_endpoint
             script: |
               #!/usr/bin/env bash
@@ -390,6 +385,7 @@ spec:
               echo "## Go to https://$ROX_CENTRAL_ENDPOINT/main/vulnerability-management/image/$(params.image_digest) to check more info"
               TEST_OUTPUT="Details in the logs"
               echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
+<<<<<<< HEAD
     - name: roxctl-check
       params:
       - name: image 
@@ -565,7 +561,6 @@ spec:
     - name: workspace
     - name: git-auth
       optional: true
-  taskRunTemplate: {}
   workspaces:
   - name: workspace
     volumeClaimTemplate:
@@ -582,4 +577,3 @@ spec:
     secret:
       secretName: '{{ git_auth_secret }}'
 status: {}
-
