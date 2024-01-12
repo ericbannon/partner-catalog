@@ -5,6 +5,7 @@ metadata:
 spec:
   selector:
     app: node-app 
+    team: web
   type: LoadBalancer
   ports:
   - protocol: TCP
