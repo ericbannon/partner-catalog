@@ -1,4 +1,4 @@
-FROM node:10
+FROM node:22
 LABEL version="1.0"
 WORKDIR /usr/src/app
 COPY package*.json ./
